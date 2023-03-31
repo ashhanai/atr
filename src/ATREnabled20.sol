@@ -5,6 +5,10 @@ import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
 import { ATRToken } from "./ATRToken.sol";
 
 
+/**
+ * - Owner or approved address can transfer only untokenized amount
+ * - Tokenized amount can be transferred only by ATR token holder via `atrTransferFrom` function
+ */
 contract ATREnabled20 is ERC20 {
 
     // # Invariants
@@ -21,12 +25,14 @@ contract ATREnabled20 is ERC20 {
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 amount) external {
-        uint256 balance = balanceOf(msg.sender);
-        require(balance >= amount, "Insufficient balance");
-
         // For ERC20, ATR id is owner address
         // It enables fungibility of tokens locked in one address
         uint256 atrId = _atrId(msg.sender);
+
+        uint256 balance = balanceOf(msg.sender);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
+        require(balance - atrBalance >= amount, "Insufficient untokenized balance");
+
         atr.mint(msg.sender, atrId, amount);
     }
 

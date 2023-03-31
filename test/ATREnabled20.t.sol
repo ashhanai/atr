@@ -39,9 +39,18 @@ contract ATREnabled20Test is Test {
     }
 
     function test_shouldFailToMintATRToken_whenInsufficientBalance() external {
-        vm.expectRevert("Insufficient balance");
+        vm.expectRevert("Insufficient untokenized balance");
         vm.prank(joey);
         asset.mintTransferRights(110);
+    }
+
+    function test_shouldFailToMintATRToken_whenInsufficientUntokenizedBalance() external {
+        vm.prank(joey);
+        asset.mintTransferRights(60);
+
+        vm.expectRevert("Insufficient untokenized balance");
+        vm.prank(joey);
+        asset.mintTransferRights(60);
     }
 
 
@@ -57,7 +66,7 @@ contract ATREnabled20Test is Test {
         assertEq(atr.balanceOf(joey, _atrId(joey)), 0);
     }
 
-    function test_shouldFailToBurnMintATRToken_whenInsufficientTokenizedBalance() external {
+    function test_shouldFailToBurn_whenInsufficientTokenizedBalance_1() external {
         vm.prank(joey);
         asset.mintTransferRights(100);
 
@@ -70,9 +79,13 @@ contract ATREnabled20Test is Test {
         vm.expectRevert("Insufficient tokenized balance");
         vm.prank(joey);
         asset.burnTransferRights(60);
+
+        vm.expectRevert("Insufficient tokenized balance");
+        vm.prank(joey);
+        asset.burnTransferRights(90);
     }
 
-    function test_shouldFailToBurn_whenInsufficientTokenizedBalance() external {
+    function test_shouldFailToBurn_whenInsufficientTokenizedBalance_2() external {
         vm.prank(joey);
         asset.mintTransferRights(80);
 
