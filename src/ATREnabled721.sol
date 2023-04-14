@@ -21,38 +21,45 @@ contract ATREnabled721 is ERC721 {
         atr = new ATRToken("metadata:uri", address(this));
     }
 
+    // For ERC721, ATR id is token id
+    function _atrId(uint256 tokenId) private pure returns (uint256) {
+        return tokenId;
+    }
+
 
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 tokenId) external {
+        uint256 atrId = _atrId(tokenId);
         address owner = ownerOf(tokenId);
         require(owner == msg.sender, "Insufficient untokenized balance");
-        require(atr.totalSupply(tokenId) == 0, "Insufficient untokenized balance");
+        require(atr.totalSupply(atrId) == 0, "Insufficient untokenized balance");
 
-        // For ERC721, ATR id is token id
-        atr.mint(msg.sender, tokenId, 1);
+        atr.mint(msg.sender, atrId, 1);
     }
 
     function burnTransferRights(uint256 tokenId) external {
-        uint256 atrBalance = atr.balanceOf(msg.sender, tokenId);
+        uint256 atrId = _atrId(tokenId);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
         require(atrBalance == 1, "Insufficient tokenized balance");
 
-        atr.burn(msg.sender, tokenId, 1);
+        atr.burn(msg.sender, atrId, 1);
     }
 
 
     // # use transfer rights
 
     function atrTransferFrom(address from, address to, uint256 tokenId, bool burnAtr) external {
-        uint256 atrBalance = atr.balanceOf(msg.sender, tokenId);
+        uint256 atrId = _atrId(tokenId);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
         require(atrBalance == 1, "Insufficient atr balance");
 
-        atr.burn(msg.sender, tokenId, 1);
+        atr.burn(msg.sender, atrId, 1);
 
         _transfer(from, to, tokenId);
 
         if (!burnAtr)
-            atr.mint(msg.sender, tokenId, 1);
+            atr.mint(msg.sender, atrId, 1);
     }
 
 
@@ -62,7 +69,8 @@ contract ATREnabled721 is ERC721 {
         if (from == address(0))
             return; // mint ATREnabled721 tokens
 
-        uint256 atrTotalSupply = atr.totalSupply(firstTokenId);
+        uint256 atrId = _atrId(firstTokenId);
+        uint256 atrTotalSupply = atr.totalSupply(atrId);
         require(atrTotalSupply == 0, "Insufficient untokenized balance");
     }
 

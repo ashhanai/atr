@@ -21,12 +21,16 @@ contract ATREnabled20 is ERC20 {
         atr = new ATRToken("metadata:uri", address(this));
     }
 
+    // For ERC20, ATR id is owner address
+    // It enables fungibility of tokens locked in one address
+    function _atrId(address owner) private pure returns (uint256) {
+        return uint256(uint160(owner));
+    }
+
 
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 amount) external {
-        // For ERC20, ATR id is owner address
-        // It enables fungibility of tokens locked in one address
         uint256 atrId = _atrId(msg.sender);
 
         uint256 balance = balanceOf(msg.sender);
@@ -85,11 +89,6 @@ contract ATREnabled20 is ERC20 {
 
     function burn(address account, uint256 amount) external {
         _burn(account, amount);
-    }
-
-
-    function _atrId(address owner) private pure returns (uint256) {
-        return uint256(uint160(owner));
     }
 
 }

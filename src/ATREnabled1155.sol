@@ -21,12 +21,16 @@ contract ATREnabled1155 is ERC1155 {
         atr = new ATRToken("metadata:uri", address(this));
     }
 
+    // For ERC1155, ATR id is owner address hashed with token id
+    // It enables fungibility of tokens locked in one address
+    function _atrId(address owner, uint256 tokenId) private pure returns (uint256) {
+        return uint256(keccak256(abi.encode(owner, tokenId)));
+    }
+
 
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 tokenId, uint256 amount) external {
-        // For ERC1155, ATR id is owner address hashed with token id
-        // It enables fungibility of tokens locked in one address
         uint256 atrId = _atrId(msg.sender, tokenId);
 
         uint256 balance = balanceOf(msg.sender, tokenId);
@@ -97,11 +101,6 @@ contract ATREnabled1155 is ERC1155 {
 
     function burn(address account, uint256 tokenId, uint256 amount) external {
         _burn(account, tokenId, amount);
-    }
-
-
-    function _atrId(address owner, uint256 tokenId) private pure returns (uint256) {
-        return uint256(keccak256(abi.encode(owner, tokenId)));
     }
 
 }
