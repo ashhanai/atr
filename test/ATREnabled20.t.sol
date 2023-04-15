@@ -7,10 +7,19 @@ import { ATRToken } from "../src/ATRToken.sol";
 import { ATREnabled20 } from "../src/ATREnabled20.sol";
 
 
+contract ATREnabled20Harness is ATREnabled20 {
+
+    function exposed_mint(address account, uint256 amount) external {
+        _mint(account, amount);
+    }
+
+}
+
+
 contract ATREnabled20Test is Test {
 
     ATRToken atr;
-    ATREnabled20 asset;
+    ATREnabled20Harness asset;
 
     address joey = makeAddr("joey");
     address chandler = makeAddr("chandler");
@@ -18,10 +27,10 @@ contract ATREnabled20Test is Test {
 
 
     function setUp() external {
-        asset = new ATREnabled20();
+        asset = new ATREnabled20Harness();
         atr = asset.atr();
 
-        asset.mint(joey, 100);
+        asset.exposed_mint(joey, 100);
     }
 
     function _atrId(address owner) private pure returns (uint256) {
@@ -112,13 +121,13 @@ contract ATREnabled20Test is Test {
         vm.prank(joey);
         asset.mintTransferRights(80);
 
-        vm.expectRevert("Insufficient untokenized balance");
         vm.prank(joey);
-        asset.transfer(chandler, 30);
+        asset.approve(chandler, 30);
+
+        vm.expectRevert("Insufficient atr balance");
+        vm.prank(chandler);
+        asset.transferFrom(joey, chandler, 30);
     }
-
-
-    // transfer via atr
 
     function test_shouldTransfer_whenSufficientTokenizedBalance() external {
         vm.prank(joey);
@@ -130,7 +139,7 @@ contract ATREnabled20Test is Test {
         assertEq(atr.balanceOf(chandler, _atrId(joey)), 50);
 
         vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, 50, true);
+        asset.transferFrom(joey, ross, 50);
 
         assertEq(asset.balanceOf(joey), 50);
         assertEq(asset.balanceOf(ross), 50);
@@ -145,10 +154,10 @@ contract ATREnabled20Test is Test {
 
         vm.expectRevert("Insufficient atr balance");
         vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, 60, true);
+        asset.transferFrom(joey, ross, 60);
     }
 
-    function test_shouldBurnFromATRToken() external {
+    function test_shouldMintToATRToken() external {
         vm.prank(joey);
         asset.mintTransferRights(100);
 
@@ -156,25 +165,10 @@ contract ATREnabled20Test is Test {
         atr.safeTransferFrom(joey, chandler, _atrId(joey), 50, "");
 
         assertEq(atr.balanceOf(chandler, _atrId(joey)), 50);
+        assertEq(atr.balanceOf(chandler, _atrId(ross)), 0);
 
         vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, 50, true);
-
-        assertEq(atr.balanceOf(joey, _atrId(joey)), 50);
-        assertEq(atr.balanceOf(chandler, _atrId(joey)), 0);
-    }
-
-    function test_shouldMintToATRToken_whenNotBurnFlag() external {
-        vm.prank(joey);
-        asset.mintTransferRights(100);
-
-        vm.prank(joey);
-        atr.safeTransferFrom(joey, chandler, _atrId(joey), 50, "");
-
-        assertEq(atr.balanceOf(chandler, _atrId(joey)), 50);
-
-        vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, 50, false);
+        asset.transferFrom(joey, ross, 50);
 
         assertEq(atr.balanceOf(joey, _atrId(joey)), 50);
         assertEq(atr.balanceOf(chandler, _atrId(joey)), 0);

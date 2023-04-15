@@ -7,10 +7,19 @@ import { ATRToken } from "../src/ATRToken.sol";
 import { ATREnabled721 } from "../src/ATREnabled721.sol";
 
 
+contract ATREnabled721Harness is ATREnabled721 {
+
+    function exposed_mint(address to, uint256 tokenId) external {
+        _mint(to, tokenId);
+    }
+
+}
+
+
 contract ATREnabled721Test is Test {
 
     ATRToken atr;
-    ATREnabled721 asset;
+    ATREnabled721Harness asset;
 
     address joey = makeAddr("joey");
     address chandler = makeAddr("chandler");
@@ -19,10 +28,10 @@ contract ATREnabled721Test is Test {
 
 
     function setUp() external {
-        asset = new ATREnabled721();
+        asset = new ATREnabled721Harness();
         atr = asset.atr();
 
-        asset.mint(joey, tokenId);
+        asset.exposed_mint(joey, tokenId);
     }
 
 
@@ -91,19 +100,19 @@ contract ATREnabled721Test is Test {
         assertEq(asset.ownerOf(tokenId), chandler);
     }
 
-    function test_shouldFailToTransfer_whenMinted() external {
+    function test_shouldFailToTransfer_whenMinted_whenNotHolder() external {
         vm.prank(joey);
         asset.mintTransferRights(tokenId);
 
-        vm.expectRevert("Insufficient untokenized balance");
+        vm.prank(joey);
+        atr.safeTransferFrom(joey, chandler, tokenId, 1, "");
+
+        vm.expectRevert("ERC721: caller is not token owner or approved");
         vm.prank(joey);
         asset.transferFrom(joey, chandler, tokenId);
     }
 
-
-    // transfer via atr
-
-    function test_shouldTransfer_whenSufficientTokenizedBalance() external {
+    function test_shouldTransfer_whenMinted_whenHolder() external {
         vm.prank(joey);
         asset.mintTransferRights(tokenId);
 
@@ -111,44 +120,9 @@ contract ATREnabled721Test is Test {
         atr.safeTransferFrom(joey, chandler, tokenId, 1, "");
 
         vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, tokenId, true);
+        asset.transferFrom(joey, ross, tokenId);
 
         assertEq(asset.ownerOf(tokenId), ross);
-    }
-
-    function test_shouldFail_whenInsufficientATRBalance() external {
-        vm.prank(joey);
-        asset.mintTransferRights(tokenId);
-
-        vm.expectRevert("Insufficient atr balance");
-        vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, tokenId, true);
-    }
-
-    function test_shouldBurnFromATRToken() external {
-        vm.prank(joey);
-        asset.mintTransferRights(tokenId);
-
-        vm.prank(joey);
-        atr.safeTransferFrom(joey, chandler, tokenId, 1, "");
-
-        vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, tokenId, true);
-
-        assertEq(atr.balanceOf(chandler, tokenId), 0);
-    }
-
-    function test_shouldMintToATRToken_whenNotBurnFlag() external {
-        vm.prank(joey);
-        asset.mintTransferRights(tokenId);
-
-        vm.prank(joey);
-        atr.safeTransferFrom(joey, chandler, tokenId, 1, "");
-
-        vm.prank(chandler);
-        asset.atrTransferFrom(joey, ross, tokenId, false);
-
-        assertEq(atr.balanceOf(chandler, tokenId), 1);
     }
 
 }

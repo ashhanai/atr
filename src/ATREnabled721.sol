@@ -22,6 +22,11 @@ contract ATREnabled721 is ERC721 {
     }
 
     // For ERC721, ATR id is token id
+    // Owner can be basically ignored
+    function atrId(address /* owner */, uint256 tokenId) external pure returns (uint256) {
+        return _atrId(tokenId);
+    }
+
     function _atrId(uint256 tokenId) private pure returns (uint256) {
         return tokenId;
     }
@@ -30,59 +35,32 @@ contract ATREnabled721 is ERC721 {
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 tokenId) external {
-        uint256 atrId = _atrId(tokenId);
+        uint256 atrId_ = _atrId(tokenId);
         address owner = ownerOf(tokenId);
         require(owner == msg.sender, "Insufficient untokenized balance");
-        require(atr.totalSupply(atrId) == 0, "Insufficient untokenized balance");
+        require(atr.totalSupply(atrId_) == 0, "Insufficient untokenized balance");
 
-        atr.mint(msg.sender, atrId, 1);
+        atr.mint(msg.sender, atrId_, 1);
     }
 
     function burnTransferRights(uint256 tokenId) external {
-        uint256 atrId = _atrId(tokenId);
-        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
+        uint256 atrId_ = _atrId(tokenId);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId_);
         require(atrBalance == 1, "Insufficient tokenized balance");
 
-        atr.burn(msg.sender, atrId, 1);
-    }
-
-
-    // # use transfer rights
-
-    function atrTransferFrom(address from, address to, uint256 tokenId, bool burnAtr) external {
-        uint256 atrId = _atrId(tokenId);
-        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
-        require(atrBalance == 1, "Insufficient atr balance");
-
-        atr.burn(msg.sender, atrId, 1);
-
-        _transfer(from, to, tokenId);
-
-        if (!burnAtr)
-            atr.mint(msg.sender, atrId, 1);
+        atr.burn(msg.sender, atrId_, 1);
     }
 
 
     // # transfer constraints
 
-    function _beforeTokenTransfer(address from, address /*to*/, uint256 firstTokenId, uint256 /*batchSize*/) override internal view {
-        if (from == address(0))
-            return; // mint ATREnabled721 tokens
-
-        uint256 atrId = _atrId(firstTokenId);
-        uint256 atrTotalSupply = atr.totalSupply(atrId);
-        require(atrTotalSupply == 0, "Insufficient untokenized balance");
-    }
-
-
-    // # helpers
-
-    function mint(address to, uint256 tokenId) external {
-        _mint(to, tokenId);
-    }
-
-    function burn(uint256 tokenId) external {
-        _burn(tokenId);
+    function _isApprovedOrOwner(address spender, uint256 tokenId) override internal view virtual returns (bool) {
+        uint256 atrId_ = _atrId(tokenId);
+        // if tokenized, only ATR token holder can transfer
+        if (atr.totalSupply(atrId_) > 0)
+            return atr.balanceOf(spender, atrId_) == 1;
+        else
+            return super._isApprovedOrOwner(spender, tokenId);
     }
 
 }

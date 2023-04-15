@@ -23,6 +23,10 @@ contract ATREnabled1155 is ERC1155 {
 
     // For ERC1155, ATR id is owner address hashed with token id
     // It enables fungibility of tokens locked in one address
+    function atrId(address owner, uint256 tokenId) external pure returns (uint256) {
+        return _atrId(owner, tokenId);
+    }
+
     function _atrId(address owner, uint256 tokenId) private pure returns (uint256) {
         return uint256(keccak256(abi.encode(owner, tokenId)));
     }
@@ -31,76 +35,82 @@ contract ATREnabled1155 is ERC1155 {
     // # mint / burn ATR token
 
     function mintTransferRights(uint256 tokenId, uint256 amount) external {
-        uint256 atrId = _atrId(msg.sender, tokenId);
+        uint256 atrId_ = _atrId(msg.sender, tokenId);
 
         uint256 balance = balanceOf(msg.sender, tokenId);
-        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId_);
         require(balance - atrBalance >= amount, "Insufficient untokenized balance");
 
-        atr.mint(msg.sender, atrId, amount);
+        atr.mint(msg.sender, atrId_, amount);
     }
 
     function burnTransferRights(uint256 tokenId, uint256 amount) external {
-        uint256 atrId = _atrId(msg.sender, tokenId);
+        uint256 atrId_ = _atrId(msg.sender, tokenId);
 
-        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
+        uint256 atrBalance = atr.balanceOf(msg.sender, atrId_);
         require(atrBalance >= amount, "Insufficient tokenized balance");
 
-        atr.burn(msg.sender, atrId, amount);
-    }
-
-
-    // # use transfer rights
-
-    function atrTransferFrom(address from, address to, uint256 tokenId, uint256 amount, bool burnAtr) external {
-        uint256 atrId = _atrId(from, tokenId);
-
-        uint256 atrBalance = atr.balanceOf(msg.sender, atrId);
-        require(atrBalance >= amount, "Insufficient atr balance");
-
-        atr.burn(msg.sender, atrId, amount);
-        if (!burnAtr)
-            // need to mint a new atr tokens when owner changes
-            atr.mint(msg.sender, _atrId(to, tokenId), amount);
-
-        _safeTransferFrom(from, to, tokenId, amount, "");
+        atr.burn(msg.sender, atrId_, amount);
     }
 
 
     // # transfer constraints
 
-    function _beforeTokenTransfer(
-        address /*operator*/,
-        address from,
-        address /*to*/,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory /*data*/
-    ) override internal view {
-        if (from == address(0))
-            return; // mint ATREnabled1155 tokens
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) public virtual override {
+        address spender = msg.sender;
+        uint256 atrId_ = _atrId(from, id);
+        uint256 atrTotalSupply = atr.totalSupply(atrId_);
+        uint256 spenderAtrBalance = atr.balanceOf(spender, atrId_);
+        uint256 balance = balanceOf(from, id);
 
+        if (spenderAtrBalance >= amount)
+            _atrSafeTransferFrom(spender,from, to, id, amount, data);
+        else if (balance - atrTotalSupply >= amount)
+            super.safeTransferFrom(from, to, id, amount, data);
+        else
+            revert("Insufficient atr balance");
+    }
+
+    // batch transfer doesn't support ATR transfers
+    // to use ATR transfers, use `safeTransferFrom` function
+    // TODO: enabled ATR functionality for batch transfer
+    function safeBatchTransferFrom(address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) public virtual override {
         for (uint256 i = 0; i < ids.length; ++i) {
             uint256 id = ids[i];
             uint256 amount = amounts[i];
-
-            uint256 atrId = _atrId(from, id);
-            // Number of all minted atr tokens with this id is equal to the number of tokenized assets in the address
-            uint256 atrTotalSupply = atr.totalSupply(atrId);
-            uint256 balance = balanceOf(from, id);
-            require(balance - atrTotalSupply >= amount, "Insufficient untokenized balance");
+            require(balanceOf(from, id) - atr.totalSupply(_atrId(from, id)) >= amount, "Insufficient untokenized balance");
         }
+
+        super.safeBatchTransferFrom(from, to, ids, amounts, data);
+    }
+
+    function _atrSafeTransferFrom(address spender, address from, address to, uint256 id, uint256 amount, bytes memory data) private {
+        atr.burn(spender, _atrId(from, id), amount);
+        // need to mint new ATR tokens for spender
+        atr.mint(spender, _atrId(to, id), amount);
+
+        _safeTransferFrom(from, to, id, amount, data);
     }
 
 
-    // # helpers
+    // # burn
 
-    function mint(address account, uint256 tokenId, uint256 amount) external {
-        _mint(account, tokenId, amount, "");
+    function _burn(address from, uint256 id, uint256 amount) override internal virtual {
+        _checkSufficientTokenizedBalance(from, id, amount);
+        super._burn(from, id, amount);
     }
 
-    function burn(address account, uint256 tokenId, uint256 amount) external {
-        _burn(account, tokenId, amount);
+    function _burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) override internal virtual {
+        for (uint256 i; i < ids.length; ++i)
+            _checkSufficientTokenizedBalance(from, ids[i], amounts[i]);
+        super._burnBatch(from, ids, amounts);
+    }
+
+    function _checkSufficientTokenizedBalance(address from, uint256 id, uint256 amount) private view {
+        uint256 atrId_ = _atrId(from, id);
+        uint256 balance = balanceOf(from, id);
+        uint256 atrTotalSupply = atr.totalSupply(atrId_);
+        require(balance - amount >= atrTotalSupply, "Insufficient tokenized balance");
     }
 
 }
