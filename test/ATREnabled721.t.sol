@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
 import { ATRToken } from "../src/ATRToken.sol";
 import { ATREnabled721 } from "../src/ATREnabled721.sol";

@@ -1,25 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "forge-std/Test.sol";
+import { Test } from "forge-std/Test.sol";
 
 import { ATRToken } from "../src/ATRToken.sol";
 import { ATREnabled20 } from "../src/ATREnabled20.sol";
 
 
-contract ATREnabled20Harness is ATREnabled20 {
-
-    function exposed_mint(address account, uint256 amount) external {
-        _mint(account, amount);
-    }
-
-}
-
-
 contract ATREnabled20Test is Test {
 
     ATRToken atr;
-    ATREnabled20Harness asset;
+    ATREnabled20 asset;
 
     address joey = makeAddr("joey");
     address chandler = makeAddr("chandler");
@@ -27,10 +18,10 @@ contract ATREnabled20Test is Test {
 
 
     function setUp() external {
-        asset = new ATREnabled20Harness();
+        asset = new ATREnabled20();
         atr = asset.atr();
 
-        asset.exposed_mint(joey, 100);
+        deal({ token: address(asset), to: joey, give: 100 });
     }
 
     function _atrId(address owner) private pure returns (uint256) {
